@@ -2,6 +2,8 @@ package services
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/alirezasaharkhiz/FlagChain/models"
 	"github.com/alirezasaharkhiz/FlagChain/repositories"
 )
@@ -17,7 +19,6 @@ func NewFeatureFlagService(fr repositories.FlagRepository, dr repositories.Depen
 }
 
 func (s *FeatureFlagService) CreateFlag(name string, deps []string, actor string) (*models.Flag, error) {
-	//check dependencies
 	var depFlags []*models.Flag
 	for _, dn := range deps {
 		depFlag, err := s.FlagRepo.FindByName(dn)
@@ -32,7 +33,6 @@ func (s *FeatureFlagService) CreateFlag(name string, deps []string, actor string
 		return nil, err
 	}
 
-	//assign dependencies to flag
 	for _, depFlag := range depFlags {
 		dep := &models.Dependency{FlagID: flag.ID, DependsOnID: depFlag.ID}
 		if err := s.DepRepo.Add(dep); err != nil {
@@ -40,7 +40,6 @@ func (s *FeatureFlagService) CreateFlag(name string, deps []string, actor string
 		}
 	}
 
-	//log audit
 	if err := s.AuditRepo.Log(&models.AuditLog{
 		FlagID: flag.ID,
 		Action: "create",
@@ -65,16 +64,28 @@ func (s *FeatureFlagService) ToggleFlag(id uint, actor string) (*models.Flag, er
 	return flag, s.enable(flag, actor)
 }
 
+// enable checks dependencies concurrently
 func (s *FeatureFlagService) enable(flag *models.Flag, actor string) error {
-	// چک کردن فعال بودن همه‌ی dependency ها
-	deps, _ := s.DepRepo.ListWhere("flag_id = ?", 5)
+	deps, _ := s.DepRepo.ListWhere("flag_id = ?", flag.ID)
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 	missing := []string{}
+
 	for _, d := range deps {
-		depFlag, _ := s.FlagRepo.FindByID(d.DependsOnID)
-		if !depFlag.Enabled {
-			missing = append(missing, fmt.Sprintf("name:%s id:%d", depFlag.Name, depFlag.ID))
-		}
+		wg.Add(1)
+		go func(depID uint) {
+			defer wg.Done()
+			depFlag, err := s.FlagRepo.FindByID(depID)
+			if err != nil || !depFlag.Enabled {
+				mu.Lock()
+				missing = append(missing, fmt.Sprintf("id:%d", depID))
+				mu.Unlock()
+			}
+		}(d.DependsOnID)
 	}
+
+	wg.Wait()
 	if len(missing) > 0 {
 		return fmt.Errorf("Missing active dependencies: %v", missing)
 	}
@@ -91,8 +102,8 @@ func (s *FeatureFlagService) enable(flag *models.Flag, actor string) error {
 	return nil
 }
 
+// disable disables dependents concurrently
 func (s *FeatureFlagService) disable(flag *models.Flag, actor string) error {
-	// غیرفعال کردن خودش
 	flag.Enabled = false
 	if err := s.FlagRepo.Update(flag); err != nil {
 		return err
@@ -103,14 +114,32 @@ func (s *FeatureFlagService) disable(flag *models.Flag, actor string) error {
 	})
 
 	dependents, _ := s.DepRepo.ListWhere("depends_on_id = ?", flag.ID)
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, len(dependents))
+
 	for _, d := range dependents {
 		depFlag, _ := s.FlagRepo.FindByID(d.FlagID)
 		if depFlag.Enabled {
-			if err := s.disable(depFlag, actor); err != nil {
-				return err
-			}
+			wg.Add(1)
+			go func(f *models.Flag) {
+				defer wg.Done()
+				if err := s.disable(f, actor); err != nil {
+					errCh <- err
+				}
+			}(depFlag)
 		}
 	}
+
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
