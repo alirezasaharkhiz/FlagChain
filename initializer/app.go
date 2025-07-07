@@ -27,7 +27,6 @@ type App struct {
 func NewApp() *App {
 	cfg := config.LoadConfig()
 
-	// ساخت databaseURL به فرمت صحیح برای migrate.New
 	databaseURL := fmt.Sprintf("mysql://%s:%s@tcp(%s:%s)/%s?multiStatements=true",
 		cfg.DBUser,
 		cfg.DBPassword,
@@ -46,7 +45,6 @@ func NewApp() *App {
 		}
 	}
 
-	// ساخت DSN برای اتصال گورم
 	gormDSN := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		cfg.DBUser,
 		cfg.DBPassword,
