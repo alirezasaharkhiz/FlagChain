@@ -2,7 +2,7 @@ package initializer
 
 import (
 	"errors"
-	"github.com/alirezasaharkhiz/FlagChain/services"
+	"fmt"
 	"log"
 
 	"github.com/alirezasaharkhiz/FlagChain/config"
@@ -10,6 +10,7 @@ import (
 	"github.com/alirezasaharkhiz/FlagChain/middlewares"
 	"github.com/alirezasaharkhiz/FlagChain/repositories"
 	"github.com/alirezasaharkhiz/FlagChain/routes"
+	"github.com/alirezasaharkhiz/FlagChain/services"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-migrate/migrate/v4"
@@ -26,9 +27,16 @@ type App struct {
 func NewApp() *App {
 	cfg := config.LoadConfig()
 
-	// Run migrations
-	dsn := "mysql://" + cfg.DBUser + ":" + cfg.DBPassword + "@tcp(" + cfg.DBHost + ")/" + cfg.DBName + "?multiStatements=true"
-	m, err := migrate.New("file://"+cfg.MigrationsDir, dsn)
+	// ساخت databaseURL به فرمت صحیح برای migrate.New
+	databaseURL := fmt.Sprintf("mysql://%s:%s@tcp(%s:%s)/%s?multiStatements=true",
+		cfg.DBUser,
+		cfg.DBPassword,
+		cfg.DBHost,
+		cfg.DBPort,
+		cfg.DBName,
+	)
+
+	m, err := migrate.New("file://"+cfg.MigrationsDir, databaseURL)
 	if err != nil {
 		log.Fatalf("Migration setup failed: %v", err)
 	}
@@ -38,14 +46,20 @@ func NewApp() *App {
 		}
 	}
 
-	// Connect to DB with GORM
-	gormDSN := cfg.DBUser + ":" + cfg.DBPassword + "@tcp(" + cfg.DBHost + ")/" + cfg.DBName + "?charset=utf8mb4&parseTime=True&loc=Local"
+	// ساخت DSN برای اتصال گورم
+	gormDSN := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		cfg.DBUser,
+		cfg.DBPassword,
+		cfg.DBHost,
+		cfg.DBPort,
+		cfg.DBName,
+	)
+
 	db, err := gorm.Open(mysql.Open(gormDSN), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// Initialize repositories, services, controllers
 	flagRepo := repositories.NewFlagRepository(db)
 	depRepo := repositories.NewDependencyRepository(db)
 	auditRepo := repositories.NewAuditRepository(db)
@@ -53,7 +67,6 @@ func NewApp() *App {
 	service := services.NewFeatureFlagService(flagRepo, depRepo, auditRepo)
 	controller := controllers.NewFeatureFlagController(service)
 
-	// Setup router
 	router := gin.Default()
 	router.Use(middlewares.ErrorHandler)
 	routes.RegisterFlagRoutes(router, controller)
@@ -63,7 +76,7 @@ func NewApp() *App {
 
 func (a *App) Run() {
 	cfg := config.LoadConfig()
-	if err := a.Router.Run(cfg.ServerPort); err != nil {
+	if err := a.Router.Run(":" + cfg.ServerPort); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }
