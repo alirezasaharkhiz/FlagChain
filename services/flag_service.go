@@ -59,7 +59,7 @@ func (s *FeatureFlagService) ToggleFlag(id uint, actor string) (*models.Flag, er
 	}
 
 	if flag.Enabled {
-		return flag, s.disable(flag, actor)
+		return flag, s.disable(flag, actor, false)
 	}
 	return flag, s.enable(flag, actor)
 }
@@ -103,14 +103,19 @@ func (s *FeatureFlagService) enable(flag *models.Flag, actor string) error {
 }
 
 // disable disables dependents concurrently
-func (s *FeatureFlagService) disable(flag *models.Flag, actor string) error {
+func (s *FeatureFlagService) disable(flag *models.Flag, actor string, isCascade bool) error {
 	flag.Enabled = false
 	if err := s.FlagRepo.Update(flag); err != nil {
 		return err
 	}
 
+	logTitle := "toggle_off"
+
+	if isCascade {
+		logTitle = "cascade_toggle_off"
+	}
 	_ = s.AuditRepo.Log(&models.AuditLog{
-		FlagID: flag.ID, Action: "toggle_off", Actor: actor, Reason: "disabled",
+		FlagID: flag.ID, Action: logTitle, Actor: actor, Reason: "disabled",
 	})
 
 	dependents, _ := s.DepRepo.ListWhere("depends_on_id = ?", flag.ID)
@@ -124,7 +129,7 @@ func (s *FeatureFlagService) disable(flag *models.Flag, actor string) error {
 			wg.Add(1)
 			go func(f *models.Flag) {
 				defer wg.Done()
-				if err := s.disable(f, actor); err != nil {
+				if err := s.disable(f, actor, true); err != nil {
 					errCh <- err
 				}
 			}(depFlag)
