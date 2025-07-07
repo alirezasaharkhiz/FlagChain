@@ -8,6 +8,10 @@ import (
 	"strings"
 )
 
+const (
+	defaultActor string = "system"
+)
+
 type FeatureFlagController struct {
 	Svc *services.FeatureFlagService
 }
@@ -29,7 +33,7 @@ func (c *FeatureFlagController) Create(ctx *gin.Context) {
 		}
 		return
 	}
-	flag, err := c.Svc.CreateFlag(req.Name, req.Dependencies, "system")
+	flag, err := c.Svc.CreateFlag(req.Name, req.Dependencies, defaultActor)
 	if err != nil {
 		if strings.Contains(err.Error(), "record not found") {
 			ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": "dependency flag not found"})
@@ -45,12 +49,12 @@ func (c *FeatureFlagController) Toggle(ctx *gin.Context) {
 	idParam := ctx.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 32)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": "invalid id"})
 		return
 	}
-	flag, err := c.Svc.ToggleFlag(uint(id), "system")
+	flag, err := c.Svc.ToggleFlag(uint(id), defaultActor)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
 	ctx.JSON(http.StatusOK, flag)
@@ -59,7 +63,7 @@ func (c *FeatureFlagController) Toggle(ctx *gin.Context) {
 func (c *FeatureFlagController) List(ctx *gin.Context) {
 	flags, err := c.Svc.ListFlags()
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
 	ctx.JSON(http.StatusOK, flags)
@@ -69,12 +73,12 @@ func (c *FeatureFlagController) History(ctx *gin.Context) {
 	idParam := ctx.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 32)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": "invalid id"})
 		return
 	}
 	hist, err := c.Svc.GetHistory(uint(id))
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
 	ctx.JSON(http.StatusOK, hist)
@@ -84,7 +88,7 @@ func (c *FeatureFlagController) AddDependency(ctx *gin.Context) {
 	idParam := ctx.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 32)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid flag id"})
+		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": "invalid flag id"})
 		return
 	}
 
@@ -100,9 +104,9 @@ func (c *FeatureFlagController) AddDependency(ctx *gin.Context) {
 		return
 	}
 
-	err = c.Svc.AddDependency(uint(id), req.DependsOnID)
+	err = c.Svc.AddDependency(uint(id), req.DependsOnID, defaultActor)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
 

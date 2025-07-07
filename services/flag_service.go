@@ -143,7 +143,7 @@ func (s *FeatureFlagService) disable(flag *models.Flag, actor string) error {
 	return nil
 }
 
-func (s *FeatureFlagService) AddDependency(flagID, dependsOnID uint) error {
+func (s *FeatureFlagService) AddDependency(flagID, dependsOnID uint, actor string) error {
 	if s.hasCircularDependency(dependsOnID, flagID, map[uint]bool{}) {
 		return fmt.Errorf("Circular dependency detected between %d and %d", flagID, dependsOnID)
 	}
@@ -160,7 +160,16 @@ func (s *FeatureFlagService) AddDependency(flagID, dependsOnID uint) error {
 		FlagID:      flagID,
 		DependsOnID: dependsOnID,
 	}
-	return s.DepRepo.Add(dep)
+	addErr := s.DepRepo.Add(dep)
+
+	_ = s.AuditRepo.Log(&models.AuditLog{
+		FlagID: flagID,
+		Action: "assign_dependency",
+		Actor:  actor,
+		Reason: fmt.Sprintf("dependency added: %d", dependsOnID),
+	})
+
+	return addErr
 }
 
 func (s *FeatureFlagService) hasCircularDependency(currentID, targetID uint, visited map[uint]bool) bool {
