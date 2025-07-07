@@ -15,8 +15,8 @@ A microservice built with **Golang**, **Gin**, and **GORM** to manage feature fl
 
 1. **Clone the repository**
    ```bash
-   git clone https://https://github.com/alirezasaharkhiz/FlagChain.git
-   cd feature-flags-service
+   git clone https://github.com/alirezasaharkhiz/FlagChain.git
+   cd FlagChain
    ```
 
 2. **Environment Variables**
@@ -25,8 +25,8 @@ A microservice built with **Golang**, **Gin**, and **GORM** to manage feature fl
    DB_HOST=db
    DB_PORT=3306
    DB_USER=root
-   DB_PASSWORD=example
-   DB_NAME=flagsdb
+   DB_PASSWORD=
+   DB_NAME=flag_chain_db
    SERVER_PORT=:8080
    MIGRATIONS_DIR=./migrations
    ```
@@ -38,10 +38,12 @@ A microservice built with **Golang**, **Gin**, and **GORM** to manage feature fl
    - This will start MySQL, run migrations, and launch the API server.
 
 4. **API Endpoints**
-   - `POST /flags` – Create a new flag.
-   - `GET /flags` – List all flags.
-   - `PATCH /flags/:id/toggle` – Toggle a flag on/off.
-   - `GET /flags/:id/history` – Retrieve audit log for a flag.
+   - `GET /api/ping` – Ping endpoint, returns `"pong"`.
+   - `POST /api/flags` – Create a new flag.
+   - `GET /api/flags` – List all flags.
+   - `PUT /api/flags/:id/toggle` – Toggle a flag on/off.
+   - `GET /api/flags/:id/history` – Retrieve audit log for a flag.
+   - `POST /api/flags/:id/dependencies` – Add a dependency to a flag, with checking circular dependency.
 
 ## License
 MIT © Alireza Saharkhiz
