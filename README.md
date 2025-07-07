@@ -39,9 +39,9 @@ A microservice built with **Golang**, **Gin**, and **GORM** to manage feature fl
 
 4. **API Endpoints**
    - `GET /api/ping` – Ping endpoint, returns `"pong"`.
-   - `POST /api/flags` – Create a new flag.
-   - `GET /api/flags` – List all flags.
-   - `PUT /api/flags/:id/toggle` – Toggle a flag on/off.
+   - `POST /api/flags` – Create a new flag (with or without dependencies).
+   - `GET /api/flags` – List all flags and dependencies.
+   - `PUT /api/flags/:id/toggle` – Toggle a flag on/off (If a dependency flag is disabled, any flags depending on it will also be automatically disabled).
    - `GET /api/flags/:id/history` – Retrieve audit log for a flag.
    - `POST /api/flags/:id/dependencies` – Add a dependency to a flag, with checking circular dependency.
 
