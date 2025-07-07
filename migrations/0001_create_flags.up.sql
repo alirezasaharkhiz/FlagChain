@@ -4,5 +4,6 @@ CREATE TABLE flags
     name       VARCHAR(255) NOT NULL UNIQUE,
     enabled    BOOLEAN DEFAULT FALSE,
     created_at DATETIME,
-    updated_at DATETIME
+    updated_at DATETIME,
+    deleted_at DATETIME
 );

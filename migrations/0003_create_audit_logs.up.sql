@@ -6,5 +6,7 @@ CREATE TABLE audit_logs
     actor      VARCHAR(100),
     reason     TEXT,
     created_at DATETIME,
+    updated_at DATETIME,
+    deleted_at DATETIME,
     FOREIGN KEY (flag_id) REFERENCES flags (id)
 );
